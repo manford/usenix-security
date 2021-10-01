@@ -1,0 +1,48 @@
+from __future__ import division, absolute_import, print_function
+import os, sys
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+
+
+
+"""load raw data"""
+train_X = pd.read_pickle("./train_X.pkl")
+test_X = pd.read_pickle("./test_X.pkl")
+train_Y = np.loadtxt("./train_y.dat", dtype=int)
+test_Y = np.loadtxt("./test_y.dat", dtype=int)
+print("Data loading is done.")
+
+
+"""total data set"""
+train_D = np.hstack((train_X.values, train_Y.reshape(-1, 1)))
+print(len(train_D))
+test_D = np.hstack((test_X.values, test_Y.reshape(-1, 1)))
+print(len(test_D))
+total_D = np.vstack((train_D, test_D))
+print("The total data set shape before the pre-processing is: \n", total_D.shape)
+
+
+"""introduce one-hot labels"""
+label_enc = LabelEncoder()
+one_hot_enc = OneHotEncoder(categories='auto')
+tmp_total_D_label = np.array(label_enc.fit_transform(total_D[:, -1])).reshape(-1, 1)  # transformed labels
+print("The labeled labels are: \n", tmp_total_D_label)
+
+
+train_row = len(train_D)
+test_row = len(test_D)
+num_classes = max(np.ravel(tmp_total_D_label, 'F')) + 1
+num_classes = num_classes.item()  # convert numpy.int64 to python int
+print("number of classes is: \n", num_classes)
+
+total_DD = total_D[:, :-1]  # X part
+total_DDD = np.hstack((total_DD, tmp_total_D_label))  # X + y
+train_D, test_D = np.split(total_DDD, [train_row])
+
+# 0-86, 87-149, 150-164, 165-229, 230-261
+Viewer = {
+    0: range(0, 87),
+    1: range(87, 150),
+    2: range(150, 165),
+    3: range(165, 230),
+    4: range(230, 261)
+}

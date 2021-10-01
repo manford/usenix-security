@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="572c6195-6592-471e-8888-c19e4879ed7b" name="ict gpu server" url="http://127.0.0.1">
+        <fileTransfer rootFolder="/home/majun" accessType="SFTP" host="127.0.0.1" port="6000" sshConfigId="a315e0ce-e90b-4a16-bfbf-8d3d46a2063f" sshConfig="majun@127.0.0.1:6000 key" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
