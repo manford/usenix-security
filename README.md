@@ -18,3 +18,16 @@ In practice, it is critical for administrators of corporate and public wireless 
 - **What does MvWDL do? 🤔**
   [Check out our Website](https://gitlab.pi2star.com/majun/ccs)
 
+
+-**todo list**
+- run
+- numpyio
+- dbio&sqlalchemy
+- loss3 loss4
+- tensorRT
+- tensorboard
+- setuptools
+- flask
+- docker
+
+
