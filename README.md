@@ -9,7 +9,7 @@ In practice, it is critical for administrators of corporate and public wireless 
 
 <img align="center" height="244" src="https://github.com/manford/usenix-security/blob/master/MvWDL.jpeg">
 
--**I'd like to read the files. 🤓**
+**I'd like to read the files. 🤓**
 - MvWDL.py is multi-view、wide&deep (MvWDL) algorithm
 - .pkl is raw feature files
 - .dat is raw label files
