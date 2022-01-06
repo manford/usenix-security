@@ -20,7 +20,7 @@ In practice, it is critical for administrators of corporate and public wireless 
 
 
 **todo list**
-- embedding_lookup
+- word
 - ONNX
 - db_io & sqlalchemy
 - loss3 & loss4
