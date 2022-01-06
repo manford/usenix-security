@@ -15,7 +15,7 @@ In practice, it is critical for administrators of corporate and public wireless 
 - .dat is raw label files
 
 ---
-- **What does MvWDL do? 🤔**
+**What does MvWDL do? 🤔**
   [Check out our Website](https://github.com/manford/usenix-security)
 
 
