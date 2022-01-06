@@ -19,7 +19,7 @@ In practice, it is critical for administrators of corporate and public wireless 
   [Check out our Website](https://github.com/manford/usenix-security)
 
 
-**optimizing list**
+**todo list**
 - embedding_lookup
 - ONNX
 - db_io & sqlalchemy
