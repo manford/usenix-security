@@ -5,7 +5,7 @@
 import tensorflow as tf
 import argparse
 # GENERAL DEFINES
-INFERENCE_GRAPH = 'graph.pbtxt'
+INFERENCE_GRAPH = 'graph.pb'
 
 # Define the Flags, Activations, ModeKeys and Optimizers.
 FLAGS = tf.flags.FLAGS

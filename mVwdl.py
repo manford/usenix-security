@@ -5,17 +5,15 @@
 
 # Author: MA Jun
 # Date: 2019.12.22
+# Data: 2022.12.31
 
 from __future__ import absolute_import, division, print_function
 import argparse
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 import time
 import os
-import pandas as pd
-import numpy as np
 import tensorflow as tf
+from numpyIO import NumpyIO
 print(tf.version)
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # disable GPU info
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -23,41 +21,14 @@ print("Is there a GPU available: ")
 # assert print(device_lib.list_local_devices()), "No GPUs found."
 gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.67)
 
-"""load raw data"""
-train_X = pd.read_pickle("./train_X.pkl")
-test_X = pd.read_pickle("./test_X.pkl")
-train_Y = np.loadtxt("./train_y.dat", dtype=int)
-test_Y = np.loadtxt("./test_y.dat", dtype=int)
-print("Data loading is done.")
 
-"""total data set"""
-train_D = np.hstack((train_X.values, train_Y.reshape(-1, 1)))
-print(len(train_D))
-test_D = np.hstack((test_X.values, test_Y.reshape(-1, 1)))
-print(len(test_D))
-total_D = np.vstack((train_D, test_D))
-print("The total data set shape before the pre-processing is: \n", total_D.shape)
+# Read the numpy dataset
+npIO = NumpyIO("./train_X.pkl", "./test_X.pkl", "./train_y.dat", "./test_y.dat")
+dataset = npIO.load()
+train_dataset, test_dataset = npIO.getDataset()
+num_classes = npIO.num_classes
 
-
-"""introduce one-hot labels"""
-label_enc = LabelEncoder()
-one_hot_enc = OneHotEncoder(categories='auto')
-tmp_total_D_label = np.array(label_enc.fit_transform(total_D[:, -1])).reshape(-1, 1)  # transformed labels
-print("The labeled labels are: \n", tmp_total_D_label)
-
-
-train_row = len(train_D)
-test_row = len(test_D)
-num_classes = max(np.ravel(tmp_total_D_label, 'F')) + 1
-num_classes = num_classes.item()  # convert numpy.int64 to python int
-print("number of classes is: \n", num_classes)
-
-total_DD = total_D[:, :-1]  # X part
-total_DDD = np.hstack((total_DD, tmp_total_D_label))  # X + y
-train_D, test_D = np.split(total_DDD, [train_row])
-
-
-# 0-86, 87-149, 150-164, 165-229, 230-261
+# table: 0-86, 87-149, 150-164, 165-229, 230-261
 Viewer = {
     0: range(0, 87),
     1: range(87, 150),
@@ -87,7 +58,8 @@ try:
     tf.flags.DEFINE_string('predict_checkpoint', '', 'predict_checkpoint')
     tf.flags.DEFINE_string('emb_combiner', 'mean', 'emb_combiner')
     tf.flags.DEFINE_integer("word_vocabulary_size", 50000, "word vocabulary size")
-    tf.flags.DEFINE_integer("emb_dim", 32, 'embedding dim')
+    tf.flags.DEFINE_integer("emb_dim", 64, 'embedding dim')
+    tf.flags.DEFINE_integer("align_size", 32, " align and attention size")
     tf.flags.DEFINE_integer("item_net_layer", 5, "net layer")
     tf.flags.DEFINE_float('reg_weight', 0.01, 'reg weight')
     tf.flags.DEFINE_string('phase', 'train', "train or predict or delete")
@@ -158,31 +130,31 @@ def input_fn(is_train, np_data):
     features = pair_data[0]  # tuple
     labels = tf.to_float(pair_data[1])
 
-    # print("features %s" % features)
-    # print("labels %s" % labels)
+    print("features %s" % features.keys())  # dict()
+    print("labels %s" % labels)
 
     return features, labels
 
 
-# train_input_fn = lambda: input_fn(is_train=True, np_data=train_D)
-# test_input_fn = lambda: input_fn(is_train=False, np_data=test_D)
-
-def train_input_fn():
-    return input_fn(is_train=True, np_data=train_D)
+def __train_input_fn():
+    return input_fn(is_train=True, np_data=train_dataset)
 
 
-def test_input_fn():
-    return input_fn(is_train=False, np_data=test_D)
+def __test_input_fn():
+    return input_fn(is_train=False, np_data=test_dataset)
 
 
-# store and index categorical and numerical columns
+# Store and index categorical and numerical columns
 CATEGORICAL_COLUMNS = [dict() for _ in range(5)]
 NUMERICAL_COLUMNS = [dict() for _ in range(5)]
 
 
 def __is_category(np_feature):
-    """return if it is a categorical tf column"""
-    cc_values = set(np_feature)
+    """return if it is a categorical tf column
+    the numpy dataset's dtype is heterogeneous data with mix of int64, float64 or object
+    """
+    cc_set = set(np_feature)
+    cc_values = list(cc_set)
     cc_max = max(cc_values)
     cc_len = len(cc_values)
     if cc_max + 1 == cc_len:
@@ -193,11 +165,11 @@ def __is_category(np_feature):
 
 for j in range(5):  # five views
     for cc in Viewer[j]:
-        if __is_category(total_DDD[:, cc]):
-            cc_size = max(total_DDD[:, cc]) + 1
-            CATEGORICAL_COLUMNS[j][int(cc)] = int(cc_size)  # key is cc and value is cc_size
+        if __is_category(dataset[:, cc]):  # numpy
+            cc_size = max(dataset[:, cc]) + 1
+            CATEGORICAL_COLUMNS[j][str(cc)] = int(cc_size)  # key is str cc and value is int cc_size
         else:
-            NUMERICAL_COLUMNS[j][int(cc)] = -1
+            NUMERICAL_COLUMNS[j][str(cc)] = -1
 
 
 params = {'learning_rate': FLAGS.learning_rate, 'optimizer': Optimizer[FLAGS.optimizer],
@@ -205,12 +177,12 @@ params = {'learning_rate': FLAGS.learning_rate, 'optimizer': Optimizer[FLAGS.opt
           'regularizer': tf.contrib.layers.l2_regularizer(FLAGS.reg_weight)}
 
 
-def align(inputs, dim1, dim2):
+def __align(inputs, dim1, dim2):
     """
     align them into same dimension
+    :param inputs: list
     :param dim1:
     :param dim2:
-    :param inputs: list
     :return: list
     """
     inputs = inputs
@@ -223,132 +195,143 @@ def align(inputs, dim1, dim2):
     return inputs  # shape = [:, dim1, dim2]
 
 
-def attention(inputs, attention_size):
-    """the basic attention definition"""
+def __attention(inputs, attention_size):
+    """
+    the basic attention definition
+    :param inputs: list
+    :param attention_size:
+    :return: tensor[:, word_size*attention_size, attention_size]
+    """
     inputs = [xx for xx in inputs if xx is not None]
-    word_size = len(inputs)
-    inputs = align(inputs, attention_size, attention_size)
-    # the trainable parameters
-    w_omega = tf.Variable(tf.random_normal([attention_size], stddev=0.1), name='w')
-    b_omega = tf.Variable(tf.random_normal([word_size], stddev=0.1), name='b')
-
-    q = tf.reshape(tf.concat([inputs], axis=1), [-1, word_size, attention_size])
+    inputs = __align(inputs, attention_size, attention_size)
+    key = tf.Variable(tf.random_normal([attention_size, attention_size], stddev=0.1), name='w')
+    q = tf.concat(inputs, axis=1)
     print("q shape is ", q.shape)
-
     print("On GPU: ")
     with tf.device("GPU:0"):  # Force execution on GPU
-
-        v = tf.tanh(tf.tensordot(q, w_omega, axes=1, name='v') + b_omega)
+        # attention stage one
+        v = tf.tanh(tf.tensordot(q, key, axes=1, name='v'))
         print("v shape is ", v.shape)
-
-        alpha = tf.nn.softmax(v)
+        # attention stage two
+        alpha = tf.nn.softmax(v, name='a')
         print("alpha shape is ", alpha.shape)
-
-        av = q * tf.expand_dims(alpha, -1)
-        print("av shape is ", av.shape)
-
-        return tf.reduce_sum(av, 1)
+        return alpha
 
 
 def model_fn(features, labels, mode):
-    """build nn-based multi-view architecture"""
+    """
+    build nn-based multi-view architecture
+    :param features: dtype is dict(), so index column with features[str(key)]
+    :param features: meanwhile, embedding_lookup's ids is tf.int32 or tf.int64
+    :param labels:
+    :param mode:
+    :return:
+    """
 
     net = [dict() for _ in range(5)]  # embedding list hat e
     with tf.name_scope('embedding'):
 
+        cc_embed_ding = [dict() for _ in range(5)]
+        tmp_net = [list() for _ in range(5)]
+
         for k in range(5):
-            # id embedding
-            tmp_cc_embed_var = {}
-            tmp_cc_embed_feature = {}
-            for key, value in CATEGORICAL_COLUMNS[k].items():
-                tmp_cc_embed_var[key] = tf.Variable(tf.random_uniform([value, FLAGS.emb_dim], -0.1, 0.1),
-                                                    name='cate_embedding_var')
-                # turn 1 dim to 2 dim
-                tmp_cc_embed_feature[key] = tf.nn.embedding_lookup(tmp_cc_embed_var[key],
-                                                                   tf.to_int32(tf.reshape(features[str(key)], [-1, 1])),
-                                                                   partition_strategy='mod',
-                                                                   name='embedding_feature')
-            tmp_net = []
+
             # build cate net
             if CATEGORICAL_COLUMNS[k]:
+
+                # id embedding for cate
+                word_size = sum(CATEGORICAL_COLUMNS[k].values())
+                cc_embed_var = tf.Variable(tf.random_uniform([word_size, FLAGS.emb_dim], -0.1, 0.1), name='cate_embedding_var')
+
+                for key, value in CATEGORICAL_COLUMNS[k].items():
+
+                    # word embedding
+                    cc_embed_ding[k][key] = tf.nn.embedding_lookup(cc_embed_var, tf.cast(features[str(key)], dtype=tf.int32), name='embedding_feature')
+
+                # concat cate net
                 cate_keys = sorted(CATEGORICAL_COLUMNS[k].keys())
-                feature_embed_net = tf.concat([tmp_cc_embed_feature[key] for key in cate_keys], axis=1)
+                feature_embed_net = tf.concat([tf.expand_dims(cc_embed_ding[k][key], 1) for key in cate_keys], axis=1)
                 print('concat embed feature columns shape is', feature_embed_net.shape)
-                tmp_net.append(feature_embed_net)
+                tmp_net[k].append(feature_embed_net)
+
             # build num net
             if NUMERICAL_COLUMNS[k]:
+
+                # concat num net
                 num_keys = sorted(NUMERICAL_COLUMNS[k].keys())
                 feature_num_net = tf.expand_dims(tf.concat([tf.to_float(tf.reshape(features[str(key)], [-1, 1])) for key in num_keys], axis=1), axis=2)
                 print('concat num feature columns shape is', feature_num_net.shape)
-                tmp_net.append(feature_num_net)
-            net[k] = tf.concat(tmp_net, axis=1) if len(tmp_net) >= 2 else tmp_net[0]
+                tmp_net[k].append(feature_num_net)
+
+            # merge
+            net[k] = tf.concat(tmp_net[k], axis=1) if len(tmp_net[k]) >= 2 else tmp_net[k][0]
 
     with tf.name_scope('hidden'):
-        def deep_net_func(inputs, reuse):
-            layer = inputs
-            with tf.variable_scope('hidden/item_net', reuse=reuse) as vs1:
-                print("vs1 is ", vs1)
-                for i in range(1, FLAGS.item_net_layer + 1):
-                    num_col_ed = layer.shape[1]
-                    print("temp layer shape is ", num_col_ed)
-                    if i == 1:
-                        layer = params['activation'](layer)
-                    else:
-                        layer = tf.contrib.layers.fully_connected(
-                            layer,
-                            FLAGS.emb_dim if (i + 1) < FLAGS.item_net_layer else FLAGS.num_classes,
-                            scope='item_net_l%s' % i,
-                            weights_regularizer=params['regularizer'],
-                            biases_regularizer=params['regularizer'],
-                            activation_fn=params['activation'] if (i + 1) < FLAGS.item_net_layer else None)
-            return layer
 
         def wide_net_func(inputs, reuse):
-            layer = inputs
-            with tf.variable_scope('hidden/prob_net', reuse=reuse) as vs2:
-                print("vs2 is ", vs2)
+            layer = tf.reduce_sum(inputs, axis=1)
+            with tf.variable_scope('hidden/prob_net', reuse=reuse) as vs1:
+                print("vs1 is ", vs1)
                 layer = tf.contrib.layers.fully_connected(
                     layer,
                     FLAGS.num_classes,
                     scope='wide_net_l%s' % 1,
                     weights_regularizer=params['regularizer'],
                     biases_regularizer=params['regularizer'],
-                    activation_fn=None)
+                    activation_fn=params['activation'])
             return layer
 
+        def deep_net_func(inputs, reuse):
+            layer = tf.reduce_sum(inputs, axis=1)
+            with tf.variable_scope('hidden/item_net', reuse=reuse) as vs2:
+                print("vs2 is ", vs2)
+                for i in range(1, FLAGS.item_net_layer + 1):
+                    if i == 1:
+                        layer = params['activation'](layer)
+                    else:
+                        layer = tf.contrib.layers.fully_connected(
+                            layer,
+                            FLAGS.emb_dim if i < FLAGS.item_net_layer else FLAGS.num_classes,
+                            scope='item_net_l%s' % i,
+                            weights_regularizer=params['regularizer'],
+                            biases_regularizer=params['regularizer'],
+                            activation_fn=params['activation'])
+            return layer
+
+    with tf.name_scope('logits'):
+
         # attention
-        attention_size = 5376
-        e_net = attention([net[t] for t in range(5)], attention_size)  # attention bold e
-        print('attention net shape is ', e_net.shape)
+        d_net = __attention([net[t] for t in range(5)], FLAGS.align_size)
 
         # dropout
         if FLAGS.dropout:
-            e_net = tf.layers.dropout(e_net, rate=0.1, training=False, name='Dropout')
-            print('dropout net shape is ', e_net.shape)
+            d_net = tf.layers.dropout(d_net, rate=0.1, training=False, name='Dropout')
+            print('dropout net shape is ', d_net.shape)
 
         # normalization
         if FLAGS.norm:
-            net_norm = tf.sqrt(tf.reduce_sum(tf.square(e_net), axis=1, keep_dims=True) + 1e-8)
-            e_net = tf.truediv(e_net, net_norm, name='truediv')
-            print('normalized net shape is ', e_net.shape)
+            net_norm = tf.sqrt(tf.reduce_sum(tf.square(d_net), axis=1, keep_dims=True) + 1e-8)
+            d_net = tf.truediv(d_net, net_norm, name='truediv')
+            print('normalized net shape is ', d_net.shape)
 
         # wide
-        net = align(net, 16, 16)
-        wide_logits = wide_net_func(net[0], tf.AUTO_REUSE)
-        for o in range(1, 5):
-            wide_logits += wide_net_func(net[o], tf.AUTO_REUSE)
+        net = __align(net, FLAGS.align_size, FLAGS.align_size)
+        w_net = tf.concat(net, axis=1)
+        print("w_net shape is ", w_net.shape)
+        wide_logits = wide_net_func(w_net, tf.AUTO_REUSE)
         # deep
-        deep_logits = deep_net_func(e_net, tf.AUTO_REUSE)
+        print("d_net shape is ", d_net.shape)
+        deep_logits = deep_net_func(d_net, tf.AUTO_REUSE)
 
         logits = wide_logits + deep_logits
-        print('logits net shape is ', logits.shape)
+        print('logits shape is ', logits.shape)
         tf.print(logits, [logits], "tf.print: logits ")
 
         pre_classes = tf.argmax(logits, axis=1)
         pre_prob = tf.nn.softmax(logits, name='classification_predict_prob')
         print("predicted probability is ", pre_prob)
 
-    with tf.name_scope('loss and accuracy'):
+    with tf.name_scope('loss'):
 
         loss_op = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
             logits=logits, labels=tf.cast(labels, dtype=tf.int32)))
@@ -384,17 +367,11 @@ config = tf.estimator.RunConfig(
 MvWDL = tf.estimator.Estimator(model_fn=model_fn)
 
 """Train"""
-MvWDL.train(input_fn=train_input_fn, steps=FLAGS.num_steps)
-print("Training costs time: {}".format(time.time()))
+MvWDL.train(input_fn=__train_input_fn, steps=FLAGS.num_steps)
+print("Training costs time: {}", time.time())
 
 """Evaluate"""
-# trt_graph = trt.create_inference_graph(
-#                 input_graph_def=frozen_graph_def,
-#                 outputs=output_node_name,
-#                 max_batch_size=batch_size,
-#                 max_workspace_size_bytes=workspace_size,
-#                 precision_mode=precision)
-result = MvWDL.evaluate(input_fn=test_input_fn)
+result = MvWDL.evaluate(input_fn=__test_input_fn)
 print("testing accuracy: ", result['accuracy'])
 print("mean loss per mini-batch: ", result['loss'])
 
@@ -404,5 +381,3 @@ serving_input_receiver_fn = tf.estimator.export.build_raw_serving_input_receiver
 path = MvWDL.export_saved_model(export_dir_base='./export_saved_model',
                                 serving_input_receiver_fn=serving_input_receiver_fn,
                                 as_text=False)
-
-
