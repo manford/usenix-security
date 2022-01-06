@@ -1,8 +1,8 @@
 ## MvWDL Algorithm Open Source
 
-[![PyPI version](https://img.shields.io/badge/PyPI%20version-21.3.1-green)]
-[![Supported Python Versions](https://www.python.org/downloads/release/python-373/)]
-[![PRs Welcome](https://gitlab.pi2star.com/majun/ccs)]
+![PyPI version](https://img.shields.io/badge/PyPI%20version-21.3.1-green)
+![Supported Python Versions](https://img.shields.io/badge/Python%20Versions-3.7.3-yellowgreen)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-yellowgreen)
 
 ---
 In practice, it is critical for administrators of corporate and public wireless networks to identify the type and/or model of devices connected to the network, OWL is a novel device identification mechanism for both network administrators and normal users; MvWDL open source is presented here, which is a new multi-view wide and deep learning (MvWDL) framework:
@@ -19,7 +19,7 @@ In practice, it is critical for administrators of corporate and public wireless 
   [Check out our Website](https://github.com/manford/usenix-security)
 
 
--**todo list**
+**todo list**
 - embedding_lookup
 - ONNX
 - db_io & sqlalchemy
