@@ -1,6 +1,6 @@
 ## MvWDL Algorithm Open Source
 
-![PyPI version](https://img.shields.io/badge/PyPI%20version-21.3.1-green)
+![PyPI Versions](https://img.shields.io/badge/PyPI%20version-21.3.1-green)
 ![Supported Python Versions](https://img.shields.io/badge/Python%20Versions-3.7.3-yellowgreen)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-yellowgreen)
 
