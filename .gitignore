@@ -1,0 +1,14 @@
+# where docs are output to on gitlab.
+
+
+# IDE files
+
+driver/
+
+venv/
+
+# Test files
+
+db_io.py
+
+irisTest.py
