@@ -239,7 +239,7 @@ def model_fn(features, labels, mode):
             # build cate net
             if CATEGORICAL_COLUMNS[k]:
 
-                # id embedding for cate
+                # ids embedding
                 word_size = sum(CATEGORICAL_COLUMNS[k].values())
                 cc_embed_var = tf.Variable(tf.random_uniform([word_size, FLAGS.emb_dim], -0.1, 0.1), name='cate_embedding_var')
 
@@ -319,6 +319,7 @@ def model_fn(features, labels, mode):
         w_net = tf.concat(net, axis=1)
         print("w_net shape is ", w_net.shape)
         wide_logits = wide_net_func(w_net, tf.AUTO_REUSE)
+
         # deep
         print("d_net shape is ", d_net.shape)
         deep_logits = deep_net_func(d_net, tf.AUTO_REUSE)
