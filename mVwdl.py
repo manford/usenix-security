@@ -246,6 +246,7 @@ def model_fn(features, labels, mode):
                 for key, value in CATEGORICAL_COLUMNS[k].items():
 
                     # word embedding
+                    # one embedding matrix variable per view
                     cc_embed_ding[k][key] = tf.nn.embedding_lookup(cc_embed_var, tf.cast(features[str(key)], dtype=tf.int32), name='embedding_feature')
 
                 # concat cate net
@@ -300,27 +301,27 @@ def model_fn(features, labels, mode):
 
     with tf.name_scope('logits'):
 
-        # attention
+        # attention / deep
         d_net = __attention([net[t] for t in range(5)], FLAGS.align_size)
 
-        # dropout
+        # dropout / deep
         if FLAGS.dropout:
             d_net = tf.layers.dropout(d_net, rate=0.1, training=False, name='Dropout')
             print('dropout net shape is ', d_net.shape)
 
-        # normalization
+        # normalization / deep
         if FLAGS.norm:
             net_norm = tf.sqrt(tf.reduce_sum(tf.square(d_net), axis=1, keep_dims=True) + 1e-8)
             d_net = tf.truediv(d_net, net_norm, name='truediv')
             print('normalized net shape is ', d_net.shape)
 
-        # wide
+        # wide / net list
         net = __align(net, FLAGS.align_size, FLAGS.align_size)
         w_net = tf.concat(net, axis=1)
         print("w_net shape is ", w_net.shape)
         wide_logits = wide_net_func(w_net, tf.AUTO_REUSE)
 
-        # deep
+        # deep / d_net
         print("d_net shape is ", d_net.shape)
         deep_logits = deep_net_func(d_net, tf.AUTO_REUSE)
 
